@@ -606,59 +606,65 @@ document.addEventListener('DOMContentLoaded', function() {
         printWindow.document.close();
     }
     
-    function saveAsPDF() {
-    // Use jsPDF from the global namespace
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Options for html2canvas
-    const options = {
-        scale: 2, // Higher quality
-        useCORS: true, // Enable cross-origin images
-        allowTaint: true, // Allow tainted images
-        logging: false, // Disable logging
-        backgroundColor: '#FFFFFF' // White background
-    };
+  // Function to download the bill as a PDF
+      function saveAsPDF() {
+        const billContainer = document.getElementById("bill-container");
+        const addItemContainer = document.getElementById("add-item-container");
+        const tools = document.getElementById("tools");
+        const historySidebar = document.getElementById("history-sidebar");
+        const historyOverlay = document.getElementById("history-overlay");
+        const copyListTable = document.getElementById("copyList");
 
-    // Create a clone of the notebook content to avoid affecting the original
-    const notebookClone = notebookContent.cloneNode(true);
-    notebookClone.style.width = '210mm';
-    notebookClone.style.padding = '20mm';
-    notebookClone.style.backgroundColor = 'white';
-    notebookClone.style.position = 'absolute';
-    notebookClone.style.left = '-9999px';
-    document.body.appendChild(notebookClone);
+        // Store initial display states
+        const initialBillDisplay = billContainer.style.display;
+        const initialAddItemDisplay = addItemContainer.style.display;
+        const initialToolsDisplay = tools.style.display;
+        const initialHistorySidebarDisplay = historySidebar.style.display;
+        const initialHistoryOverlayDisplay = historyOverlay.style.display;
 
-    // Use html2canvas to capture the content
-    html2canvas(notebookClone, options).then(canvas => {
-        document.body.removeChild(notebookClone);
-        
-        const imgData = canvas.toDataURL('image/png');
-        const imgWidth = 210; // A4 width in mm
-        const pageHeight = 295; // A4 height in mm
-        const imgHeight = canvas.height * imgWidth / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 0;
-        
-        doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        
-        // Add new pages if content is longer than one page
-        while (heightLeft >= 0) {
-            position = heightLeft - imgHeight;
-            doc.addPage();
-            doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-        }
-        
-        doc.save('handwritten-notes.pdf');
-    }).catch(err => {
-        console.error('Error generating PDF:', err);
-        alert('Error generating PDF. Please try again.');
-        document.body.removeChild(notebookClone);
-    });
-}
-    
+        // 1. Show the bill container and hide the add item container
+        billContainer.style.display = "block";
+        addItemContainer.style.display = "none";
+
+        // Hide elements that should not appear in the PDF
+        // Hide the "Remove" column in the copyList table before generating PDF
+        hideTableColumn(copyListTable, 6, "none");
+
+        if(historySidebar) historySidebar.style.display = "none"; // Hide history sidebar if it exists
+        if(historyOverlay) historyOverlay.style.display = "none"; // Hide history overlay if it exists
+        if(tools) tools.style.display = "none"; // Hide tool buttons if it exists
+
+
+        // Configuration options for html2pdf
+        const opt = {
+          margin: 0.5, // Add some margin for better appearance
+          filename: 'bill.pdf', // Output filename
+          image: { type: 'jpeg', quality: 100 }, // Image quality
+          html2canvas: {
+              scale: 5, // Increase scale for better resolution
+              useCORS: true,
+              logging: true, // Enable logging for debugging
+              allowTaint: true // Allow tainting for cross-origin images if any (use with caution)
+          },
+          jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } // jsPDF options
+        };
+
+        // Generate and save the PDF
+        html2pdf().set(opt).from(billContainer).save().then(() => {
+            // Use setTimeout to revert display states after PDF generation is complete
+            setTimeout(() => {
+                // Restore initial display states
+                billContainer.style.display = initialBillDisplay;
+                addItemContainer.style.display = initialAddItemDisplay;
+                if(tools) tools.style.display = initialToolsDisplay;
+                if(historySidebar) historySidebar.style.display = initialHistorySidebarDisplay;
+                if(historyOverlay) historyOverlay.style.display = initialHistoryOverlayDisplay;
+
+                // Restore the "Remove" column in the copyList table
+                hideTableColumn(copyListTable, 6, "table-cell");
+            }, 100); // A small delay to ensure PDF saving is complete
+        });
+      }
     function showPasteArea() {
         pasteArea.classList.toggle('hidden');
         convertButton.classList.toggle('hidden');
